@@ -37,14 +37,20 @@ async def forward_oldest_first():
 
         for i, message in enumerate(messages, start=1):
             try:
-                await message.copy(config.DEST_CHANNEL)
-                total_messages += 1
+                # Refresh the message before forwarding
+                refreshed_message = await app.get_messages(
+                    chat_id=config.SOURCE_CHANNEL,
+                    message_ids=message.id
+                )
+                
+                if refreshed_message:
+                    await refreshed_message.copy(config.DEST_CHANNEL)
+                    total_messages += 1
 
-                # Print appropriate message based on type
-                if message.video:
-                    print(f"Forwarded video message {i}/{len(messages)}: {message.video.file_name}")
-                elif message.document:
-                    print(f"Forwarded document video {i}/{len(messages)}: {message.document.file_name}")
+                    if refreshed_message.video:
+                        print(f"Forwarded video message {i}/{len(messages)}: {refreshed_message.video.file_name}")
+                    elif refreshed_message.document:
+                        print(f"Forwarded document video {i}/{len(messages)}: {refreshed_message.document.file_name}")
                 
                 await asyncio.sleep(random.randint(15, 20))
 
@@ -60,7 +66,7 @@ async def forward_oldest_first():
                     hours_passed = 0
 
             except Exception as e:
-                print(f"Error forwarding message: {e}")
+                print(f"Error forwarding message {message.id}: {e}")
                 await asyncio.sleep(60)
 
         # Small delay between batches
