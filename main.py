@@ -44,7 +44,11 @@ async def forward_oldest_first():
                 )
                 
                 if refreshed_message:
-                    await refreshed_message.copy(config.DEST_CHANNEL)
+                    await app.forward_messages(
+                        chat_id=config.DEST_CHANNEL,
+                        from_chat_id=config.SOURCE_CHANNEL,
+                        message_ids=refreshed_message.id
+                    )
                     total_messages += 1
 
                     if refreshed_message.video:
