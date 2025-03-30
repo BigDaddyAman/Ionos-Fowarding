@@ -77,10 +77,15 @@ async def forward_oldest_first():
         await asyncio.sleep(30)
 
 async def start_bot():
+    print("Starting bot...")
+    await app.start()
     try:
         await forward_oldest_first()
+    except Exception as e:
+        print(f"Error occurred: {e}")
     finally:
-        await app.stop()
+        if app.is_connected:
+            await app.stop()
 
 if __name__ == "__main__":
     app.run(start_bot())
