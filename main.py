@@ -23,7 +23,7 @@ def is_video(message):
             return ext in VIDEO_EXTENSIONS
     return False
 
-async def forward_oldest_first():
+async def forward_oldest_first(app):  # Add app parameter
     messages = []
     total_messages = 0  
     offset_id = 0
@@ -83,7 +83,7 @@ async def start_bot():
             config.API_ID,
             config.API_HASH
         ) as app:
-            await forward_oldest_first()
+            await forward_oldest_first(app)  # Pass app to the function
     except Exception as e:
         print(f"Error in start_bot: {e}")
 
