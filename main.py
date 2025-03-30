@@ -77,8 +77,10 @@ async def forward_oldest_first():
         await asyncio.sleep(30)
 
 async def start_bot():
-    async with app:
+    try:
         await forward_oldest_first()
+    finally:
+        await app.stop()
 
 if __name__ == "__main__":
-    asyncio.run(start_bot())
+    app.run(start_bot())
