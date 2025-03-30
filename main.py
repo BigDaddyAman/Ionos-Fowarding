@@ -53,8 +53,7 @@ async def forward_oldest_first(app):  # Add app parameter
             # Forward with original sender information
             await message.forward(
                 config.DEST_CHANNEL,
-                disable_notification=True,
-                protect_content=False
+                disable_notification=True
             )
             total_messages += 1
 
