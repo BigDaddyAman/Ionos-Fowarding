@@ -81,4 +81,9 @@ async def start_bot():
         await forward_oldest_first()
 
 if __name__ == "__main__":
-    asyncio.run(start_bot())
+    try:
+        asyncio.run(start_bot())
+    except RuntimeError as e:
+        if "attached to a different loop" in str(e):
+            loop = asyncio.get_event_loop()
+            loop.run_until_complete(start_bot())
