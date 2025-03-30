@@ -77,13 +77,23 @@ async def forward_oldest_first():
             print(f"Error forwarding message {i}: {e}")
 
 async def start_bot():
-    async with app:
-        await forward_oldest_first()
+    try:
+        async with Client(
+            config.SESSION_NAME,
+            config.API_ID,
+            config.API_HASH
+        ) as app:
+            await forward_oldest_first()
+    except Exception as e:
+        print(f"Error in start_bot: {e}")
 
 if __name__ == "__main__":
+    # Create a new event loop
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
     try:
-        asyncio.run(start_bot())
-    except RuntimeError as e:
-        if "attached to a different loop" in str(e):
-            loop = asyncio.get_event_loop()
-            loop.run_until_complete(start_bot())
+        loop.run_until_complete(start_bot())
+    except Exception as e:
+        print(f"Main loop error: {e}")
+    finally:
+        loop.close()
