@@ -3,89 +3,67 @@ import random
 from pyrogram import Client
 import config
 
+# Add video extensions support
+VIDEO_EXTENSIONS = [".mp4", ".webm", ".mkv", ".3gp", ".avi", ".mov", ".wmv", 
+                   ".flv", ".m4v", ".mpg", ".mpeg", ".vob", ".ogv", ".rm", 
+                   ".rmvb", ".asf", ".ts"]
+
 app = Client(config.SESSION_NAME, config.API_ID, config.API_HASH)
 
-# Add video extensions list at the top level
-VIDEO_EXTENSIONS = [
-    ".mp4", ".webm", ".mkv", ".3gp", ".avi", ".mov", ".wmv", ".flv", ".m4v", 
-    ".mpg", ".mpeg", ".vob", ".ogv", ".rm", ".rmvb", ".asf", ".ts"
-]
-
 async def forward_oldest_first():
-    total_messages = 0
-    hours_passed = 0
-    batch_size = 100
-    offset_id = 0
+    messages = []
+    total_messages = 0  
+    offset_id = 0  # ✅ Start from the latest message
+    hours_passed = 0  
 
     while True:
-        messages = []
-        async for message in app.get_chat_history(config.SOURCE_CHANNEL, offset_id=offset_id, limit=batch_size):
-            # Only append video messages
-            if (message.video or 
-                (message.document and any(
-                    message.document.file_name.lower().endswith(ext) 
-                    for ext in VIDEO_EXTENSIONS
-                ))):
-                messages.append(message)
-            
-        if not messages:
-            print("No more video messages to forward")
-            break
+        batch = []
+        async for message in app.get_chat_history(config.SOURCE_CHANNEL, offset_id=offset_id, limit=100):
+            batch.append(message)
 
-        offset_id = messages[-1].id
-        messages.reverse()  # Process from oldest to newest
+        if not batch:
+            break  # ✅ No more messages left to fetch
 
-        for i, message in enumerate(messages, start=1):
-            try:
-                # Refresh the message before forwarding
-                refreshed_message = await app.get_messages(
-                    chat_id=config.SOURCE_CHANNEL,
-                    message_ids=message.id
-                )
-                
-                if refreshed_message:
-                    await app.forward_messages(
-                        chat_id=config.DEST_CHANNEL,
-                        from_chat_id=config.SOURCE_CHANNEL,
-                        message_ids=refreshed_message.id
-                    )
-                    total_messages += 1
+        messages.extend(batch)
+        offset_id = batch[-1].id  # ✅ Use `.id`, not `.message_id`
 
-                    if refreshed_message.video:
-                        print(f"Forwarded video message {i}/{len(messages)}: {refreshed_message.video.file_name}")
-                    elif refreshed_message.document:
-                        print(f"Forwarded document video {i}/{len(messages)}: {refreshed_message.document.file_name}")
-                
-                await asyncio.sleep(random.randint(15, 20))
+        print(f"Fetched {len(messages)} messages so far...")
 
-                if total_messages % 300 == 0:
-                    hours_passed += 1
-                    short_break = random.randint(900, 1800)
-                    print(f"Taking a {short_break//60} min break after {total_messages} messages...")
-                    await asyncio.sleep(short_break)
+    messages.reverse()  # ✅ Process from oldest to newest
 
-                if hours_passed >= 12:
-                    print("Taking a 2-hour break...")
-                    await asyncio.sleep(7200)
-                    hours_passed = 0
+    print(f"Total messages to forward: {len(messages)}")
 
-            except Exception as e:
-                print(f"Error forwarding message {message.id}: {e}")
-                await asyncio.sleep(60)
+    for i, message in enumerate(messages, start=1):
+        try:
+            # Forward with original sender information
+            await message.forward(
+                config.DEST_CHANNEL,
+                disable_notification=True,
+                protect_content=False
+            )
+            total_messages += 1
 
-        # Small delay between batches
-        await asyncio.sleep(30)
+            print(f"Forwarded message {i}/{len(messages)}")
+
+            await asyncio.sleep(random.randint(10, 13))
+
+            if total_messages % 360 == 0:
+                hours_passed += 1
+                short_break = random.randint(300, 900)
+                print(f"Taking a {short_break//60} min break...")
+                await asyncio.sleep(short_break)
+
+            if hours_passed >= 16:
+                print("Taking a 1-hour break...")
+                await asyncio.sleep(3600)
+                hours_passed = 0
+
+        except Exception as e:
+            print(f"Error forwarding message {i}: {e}")
 
 async def start_bot():
-    print("Starting bot...")
-    await app.start()
-    try:
+    async with app:
         await forward_oldest_first()
-    except Exception as e:
-        print(f"Error occurred: {e}")
-    finally:
-        if app.is_connected:
-            await app.stop()
 
 if __name__ == "__main__":
-    app.run(start_bot())
+    asyncio.run(start_bot())
