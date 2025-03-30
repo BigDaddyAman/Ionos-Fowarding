@@ -1,66 +1,59 @@
 import asyncio
 import random
-from pyrogram import Client, filters
-from pyrogram.types import Message
-from config import API_ID, API_HASH, SESSION_NAME, SOURCE_CHANNEL, DEST_CHANNEL
+from pyrogram import Client
+import config  # ✅ Import config.py
 
-# Initialize Pyrogram user bot
-app = Client(SESSION_NAME, api_id=API_ID, api_hash=API_HASH)
+app = Client(config.SESSION_NAME, config.API_ID, config.API_HASH)
 
 async def forward_oldest_first():
     messages = []
-    total_messages = 0  # Counter for tracking forwarded messages
-    hours_passed = 0  # Track hours for the long break
+    total_messages = 0  
+    offset_id = 0  # ✅ Start from the latest message
+    hours_passed = 0  
 
-    async for message in app.get_chat_history(SOURCE_CHANNEL, limit=10000):
-        if message.video or (message.document and message.document.mime_type.startswith("video")):
-            messages.append(message)
+    while True:
+        batch = []
+        async for message in app.get_chat_history(config.SOURCE_CHANNEL, offset_id=offset_id, limit=100):
+            batch.append(message)
 
-    # Reverse messages to process from oldest to newest
-    messages.reverse()
+        if not batch:
+            break  # ✅ No more messages left to fetch
 
-    for message in messages:
+        messages.extend(batch)
+        offset_id = batch[-1].id  # ✅ Use `.id`, not `.message_id`
+
+        print(f"Fetched {len(messages)} messages so far...")
+
+    messages.reverse()  # ✅ Process from oldest to newest
+
+    print(f"Total messages to forward: {len(messages)}")
+
+    for i, message in enumerate(messages, start=1):
         try:
-            await message.copy(DEST_CHANNEL)  # Copy instead of forward
+            await message.copy(config.DEST_CHANNEL)
             total_messages += 1
 
-            # Random delay (10-13 sec)
+            print(f"Forwarded message {i}/{len(messages)}")
+
             await asyncio.sleep(random.randint(10, 13))
 
-            # Every hour, take a 5-15 min break
-            if total_messages % 360 == 0:  # 360 messages ≈ 1 hour (10 sec per msg avg)
+            if total_messages % 360 == 0:
                 hours_passed += 1
-                short_break = random.randint(300, 900)  # 5-15 minutes
+                short_break = random.randint(300, 900)
                 print(f"Taking a {short_break//60} min break...")
                 await asyncio.sleep(short_break)
 
-            # Every 16 hours, take a 1-hour break
             if hours_passed >= 16:
                 print("Taking a 1-hour break...")
-                await asyncio.sleep(3600)  # 1-hour break
-                hours_passed = 0  # Reset counter
+                await asyncio.sleep(3600)
+                hours_passed = 0
 
         except Exception as e:
-            print(f"Error forwarding message: {e}")
+            print(f"Error forwarding message {i}: {e}")
 
-@app.on_message(filters.chat(SOURCE_CHANNEL) & (filters.video | filters.document))
-async def forward_videos(client: Client, message: Message):
-    """Handles real-time forwarding of new messages"""
-    if message.video or (message.document and message.document.mime_type.startswith("video")):
-        try:
-            await message.copy(DEST_CHANNEL)  # Copy instead of forward
-            await asyncio.sleep(random.randint(10, 13))
-        except Exception as e:
-            print(f"Error forwarding message: {e}")
+async def start_bot():
+    async with app:
+        await forward_oldest_first()
 
 if __name__ == "__main__":
-    print("Bot started...")
-
-    async def start_bot():
-        await app.start()  # ✅ Start client before accessing Telegram API
-        await forward_oldest_first()  # ✅ Fetch & forward old videos
-        await app.stop()  # ✅ Stop after processing old messages
-
-    asyncio.run(start_bot())  # ✅ Run the async function
-
-    app.run()  # ✅ Keep running to handle new messages in real-time
+    asyncio.run(start_bot())
