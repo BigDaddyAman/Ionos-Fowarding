@@ -2,6 +2,7 @@ import asyncio
 import random
 from pyrogram import Client
 import config
+import os
 
 # Add video extensions support
 VIDEO_EXTENSIONS = [".mp4", ".webm", ".mkv", ".3gp", ".avi", ".mov", ".wmv", 
@@ -10,16 +11,30 @@ VIDEO_EXTENSIONS = [".mp4", ".webm", ".mkv", ".3gp", ".avi", ".mov", ".wmv",
 
 app = Client(config.SESSION_NAME, config.API_ID, config.API_HASH)
 
+def is_video(message):
+    # Check if message is a video
+    if message.video:
+        return True
+    # Check if message is a document with video extension
+    if message.document:
+        filename = message.document.file_name
+        if filename:
+            _, ext = os.path.splitext(filename.lower())
+            return ext in VIDEO_EXTENSIONS
+    return False
+
 async def forward_oldest_first():
     messages = []
     total_messages = 0  
-    offset_id = 0  # ✅ Start from the latest message
+    offset_id = 0
     hours_passed = 0  
 
     while True:
         batch = []
         async for message in app.get_chat_history(config.SOURCE_CHANNEL, offset_id=offset_id, limit=100):
-            batch.append(message)
+            # Only append if it's a video
+            if is_video(message):
+                batch.append(message)
 
         if not batch:
             break  # ✅ No more messages left to fetch
@@ -27,7 +42,7 @@ async def forward_oldest_first():
         messages.extend(batch)
         offset_id = batch[-1].id  # ✅ Use `.id`, not `.message_id`
 
-        print(f"Fetched {len(messages)} messages so far...")
+        print(f"Fetched {len(messages)} video messages so far...")
 
     messages.reverse()  # ✅ Process from oldest to newest
 
